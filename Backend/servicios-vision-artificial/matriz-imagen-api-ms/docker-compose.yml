@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  matrix-to-imagen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8001
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+      - DEFAULT_API_KEY=development_key_change_me
+      # Adaptar si ImageToMatrix está en otro servicio o contenedor
+      - IMAGE_TO_MATRIX_URL=http://host.docker.internal:8000/api/v1/convert
+    volumes:
+      - ./src:/app/src  # Para desarrollo, habilita cambios en tiempo real
+    networks:
+      - matrix_network
+
+networks:
+  matrix_network:
+    driver: bridge

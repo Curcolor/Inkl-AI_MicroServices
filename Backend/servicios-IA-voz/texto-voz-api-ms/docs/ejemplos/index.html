@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Texto a Voz - Cliente Web</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <style>
+    /* Agregar estilos según necesidad */
+    .online { color: green; }
+    .offline { color: red; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Conversor de Texto a Voz</h1>
+    
+    <div class="status">
+      Estado: <span id="estado">Verificando...</span>
+    </div>
+    
+    <div class="input-section">
+      <label for="texto">Texto a convertir:</label>
+      <textarea id="texto" rows="5" maxlength="1000" placeholder="Escribe o pega aquí el texto..."></textarea>
+    </div>
+    
+    <div class="options">
+      <div class="option-group">
+        <label for="voz">Voz:</label>
+        <select id="voz">
+          <option disabled>Cargando voces...</option>
+        </select>
+      </div>
+      
+      <div class="option-group">
+        <label for="velocidad">Velocidad: <span id="velocidadValor">150</span> wpm</label>
+        <input type="range" id="velocidad" min="50" max="300" value="150" step="10">
+      </div>
+      
+      <div class="option-group">
+        <label for="volumen">Volumen: <span id="volumenValor">1.0</span></label>
+        <input type="range" id="volumen" min="0" max="1" value="1" step="0.1">
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button id="btnReproducir">
+        <i class="fas fa-play"></i> Reproducir
+      </button>
+    </div>
+  </div>
+  
+  <script src="./ejemplo-cliente.js"></script>
+</body>
+</html>

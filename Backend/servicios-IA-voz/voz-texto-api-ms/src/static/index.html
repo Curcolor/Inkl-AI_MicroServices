@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Transcripción de Voz a Texto</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        h1, h2, h3 { 
+            color: #333; 
+        }
+        button { 
+            padding: 10px 15px; 
+            margin: 10px 0; 
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #resultado { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            min-height: 100px; 
+            background-color: #fff;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        .inactive {
+            background-color: #f2f2f2;
+            color: #666;
+        }
+        .recording {
+            background-color: #ffcccb;
+            color: #cc0000;
+            animation: pulse 1.5s infinite;
+        }
+        .processing {
+            background-color: #fff2cc;
+            color: #856404;
+        }
+        .completed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+          .options {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+        
+        .options label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .options select, .options input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .info-text {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prueba de Transcripción de Voz a Texto</h1>
+        <p>Esta interfaz le permite probar la funcionalidad de transcripción de voz a texto de la API.</p>
+    </div>
+    
+    <div class="container">
+        <h2>Grabación de Audio</h2>
+        
+        <button id="iniciarGrabacion">Iniciar Grabación</button>
+        <button id="detenerGrabacion" disabled>Detener Grabación</button>
+        
+        <div>
+            <h3>Estado: <span id="estado" class="status inactive">Inactivo</span></h3>
+        </div>
+        
+        <div class="options">
+            <h3>Opciones de Transcripción</h3>
+            <label for="idioma">Idioma:</label>
+            <select id="idioma">
+                <option value="es-ES">Español (España)</option>
+                <option value="es-MX">Español (México)</option>
+                <option value="en-US">Inglés (EE.UU.)</option>
+                <option value="fr-FR">Francés</option>
+                <option value="de-DE">Alemán</option>
+            </select>
+              <label for="modelo">Modelo:</label>
+            <select id="modelo">
+                <option value="default">Predeterminado</option>
+                <option value="general">General</option>
+            </select>            <label for="formatoAudio">Formato de grabación:</label>
+            <select id="formatoAudio">
+                <option value="audio/webm;codecs=pcm">WebM PCM (mejor compatibilidad)</option>
+                <option value="audio/wav">WAV (si es soportado)</option>
+                <option value="audio/wav;codecs=1">WAV PCM (mejor calidad)</option>
+                <option value="audio/mp3">MP3 (si es soportado)</option>
+            </select>
+            
+            <p class="info-text">Nota: No todos los navegadores soportan todos los formatos de grabación. Si experimenta problemas, intente con otro formato. WebM PCM ofrece la mejor compatibilidad para la transcripción.</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Resultado de la Transcripción</h2>
+        <div id="resultado">
+            El texto transcrito aparecerá aquí después de detener la grabación.
+        </div>
+    </div>
+    
+    <footer>
+        <p>API de Transcripción de Voz a Texto v1.0.0</p>
+    </footer>
+    
+    <script>
+        // Código JavaScript para grabación y envío del audio
+        let mediaRecorder;
+        let chunks = [];
+        
+        const iniciarBtn = document.getElementById('iniciarGrabacion');
+        const detenerBtn = document.getElementById('detenerGrabacion');
+        const estadoSpan = document.getElementById('estado');
+        const resultadoDiv = document.getElementById('resultado');
+        
+        // Función para actualizar el estado con la clase CSS correspondiente
+        function actualizarEstado(estado, clase) {
+            estadoSpan.textContent = estado;
+            estadoSpan.className = `status ${clase}`;
+        }
+        
+        // Evento de clic en el botón "Iniciar Grabación"
+        iniciarBtn.onclick = async () => {
+            try {
+                // Solicitar acceso al micrófono
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                  // Crear el grabador de medios
+                const formatoSeleccionado = document.getElementById('formatoAudio').value;
+                const opcionesGrabacion = {
+                    mimeType: formatoSeleccionado
+                };
+                
+                try {
+                    // Intentar crear el MediaRecorder con el formato seleccionado
+                    mediaRecorder = new MediaRecorder(stream, opcionesGrabacion);
+                    console.log(`Grabando en formato: ${formatoSeleccionado}`);
+                } catch (e) {
+                    // Si falla, intentar con el formato predeterminado
+                    console.warn(`No se pudo usar el formato ${formatoSeleccionado}. Usando formato predeterminado.`);
+                    mediaRecorder = new MediaRecorder(stream);
+                }
+                  // Evento para capturar los datos de audio
+                mediaRecorder.ondataavailable = (e) => {
+                    chunks.push(e.data);
+                };
+                
+                // Evento cuando se detiene la grabación
+                mediaRecorder.onstop = async () => {
+                    actualizarEstado('Procesando...', 'processing');
+                      // Obtener el formato MIME que se está utilizando
+                    const formatoActual = mediaRecorder.mimeType;
+                    console.log(`Formato de grabación usado: ${formatoActual}`);
+                    
+                    // Determinar la extensión de archivo basada en el tipo MIME
+                    let extension = 'webm';  // Por defecto
+                    let mimeType = formatoActual;
+                    
+                    // Mapear el formato MIME a una extensión de archivo
+                    if (formatoActual.includes('wav')) {
+                        extension = 'wav';
+                        mimeType = 'audio/wav';
+                    } else if (formatoActual.includes('mp3')) {
+                        extension = 'mp3';
+                        mimeType = 'audio/mp3';
+                    } else if (formatoActual.includes('ogg')) {
+                        extension = 'ogg';
+                        mimeType = 'audio/ogg';
+                    } else if (formatoActual.includes('webm')) {
+                        extension = 'webm';
+                        // Verificar si es PCM
+                        if (formatoActual.includes('pcm')) {
+                            mimeType = 'audio/webm;codecs=pcm';
+                        } else {
+                            mimeType = 'audio/webm';
+                        }
+                    }
+                    
+                    console.log(`Enviando archivo con extensión: ${extension} y tipo MIME: ${mimeType}`);
+                    
+                    // Crear el Blob con el tipo MIME correcto
+                    const blob = new Blob(chunks, { type: mimeType });
+                    chunks = [];
+                    
+                    // Crear un FormData para enviar el archivo
+                    const formData = new FormData();
+                    
+                    // Añadir el content-type como parte del nombre para asegurar que el servidor lo reconozca
+                    const nombreArchivo = `grabacion.${extension}`;
+                    
+                    // Crear un archivo con los metadatos correctos
+                    const archivo = new File([blob], nombreArchivo, { type: mimeType });
+                    formData.append('archivo', archivo);
+                    
+                    // Obtener las opciones seleccionadas
+                    const idioma = document.getElementById('idioma').value;
+                    const modelo = document.getElementById('modelo').value;
+                    
+                    // Crear objeto de opciones y convertirlo a JSON
+                    const opciones = {
+                        idioma: idioma,
+                        modelo: modelo
+                    };
+                    
+                    // Añadir opciones al FormData
+                    formData.append('opciones', JSON.stringify(opciones));
+                    
+                    try {
+                        // Enviar la solicitud al servidor
+                        const response = await fetch('http://127.0.0.1:5003/api/v1/transcribir', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        // Verificar si la respuesta es exitosa
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Error en la transcripción');
+                        }
+                        
+                        // Procesar la respuesta
+                        const data = await response.json();
+                        
+                        // Mostrar el texto transcrito
+                        resultadoDiv.textContent = data.texto || 'No se detectó texto en el audio';
+                        
+                        // Actualizar el estado
+                        actualizarEstado('Completado', 'completed');
+                    } catch (error) {
+                        // Mostrar error
+                        resultadoDiv.textContent = `Error: ${error.message}`;
+                        actualizarEstado(`Error: ${error.message}`, 'error');
+                    }
+                };
+                
+                // Iniciar la grabación
+                mediaRecorder.start();
+                
+                // Actualizar la interfaz
+                actualizarEstado('Grabando...', 'recording');
+                iniciarBtn.disabled = true;
+                detenerBtn.disabled = false;
+            } catch (error) {
+                // Mostrar error al acceder al micrófono
+                actualizarEstado(`Error: ${error.message}`, 'error');
+            }
+        };
+        
+        // Evento de clic en el botón "Detener Grabación"
+        detenerBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                // Detener la grabación
+                mediaRecorder.stop();
+                
+                // Detener todos los tracks del stream
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                // Actualizar la interfaz
+                iniciarBtn.disabled = false;
+                detenerBtn.disabled = true;
+            }
+        };
+    </script>
+</body>
+</html>

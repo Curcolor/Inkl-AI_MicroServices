@@ -1,0 +1,135 @@
+version: '3'
+
+services:
+  # API Gateway
+  api_gateway:
+    image: nginx:alpine
+    container_name: inkluai_gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - inkluai_network
+    # Servicio de DeepSeek  
+  deepseek-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deepseek-api-ms
+    ports:
+      - "${API_PUERTO:-5003}:${API_PUERTO:-5003}"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PUERTO=${API_PUERTO:-5003}
+      - NIVEL_LOG=${NIVEL_LOG:-INFO}
+      - DEFAULT_API_KEY=${DEFAULT_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_API_URL=${DEEPSEEK_API_URL}
+      - DEEPSEEK_MODELO=${DEEPSEEK_MODELO}
+      - TEMPERATURA_PREDETERMINADA=${TEMPERATURA_PREDETERMINADA}
+      - MAX_TOKENS_PREDETERMINADO=${MAX_TOKENS_PREDETERMINADO}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30}
+      - MAX_REINTENTOS=${MAX_REINTENTOS:-3}
+      - TIEMPO_ENTRE_REINTENTOS=${TIEMPO_ENTRE_REINTENTOS:-2}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PUERTO:-5003}/salud"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - inkluai_network
+
+  voz-texto-api:
+    build: .
+    ports:
+      - "${API_PUERTO}:${API_PUERTO}"
+    environment:
+      - MOTOR_TRANSCRIPCION=${MOTOR_TRANSCRIPCION}
+      - API_CLAVE=${API_CLAVE}
+      - API_HOST=${API_HOST}
+      - API_PUERTO=${API_PUERTO}
+      - NIVEL_LOG=${NIVEL_LOG}
+      - TAMANO_MAX_ARCHIVO=${TAMANO_MAX_ARCHIVO}
+      - FORMATOS_PERMITIDOS=${FORMATOS_PERMITIDOS}
+      - TIEMPO_ESPERA=${TIEMPO_ESPERA}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PUERTO}/salud"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - inkluai_network
+
+  # Servicio de texto a voz
+  api_texto_voz:
+    build: ./texto-voz-api-ms
+    container_name: api_texto_voz
+    restart: always
+    expose:
+      - "5002"  # Solo expuesto internamente
+    volumes:
+      - ./texto-voz-api-ms/logs:/app/logs
+      - ./texto-voz-api-ms/app/static/audio:/app/app/static/audio
+    environment:
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/api/tts/estado"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - inkluai_network
+
+  # Servicio de base de datos compartida
+  mongodb:
+    image: mongo:latest
+    container_name: inkluai_mongodb
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    networks:
+      - inkluai_network
+
+  # Servicio de autenticación
+  auth_service:
+    build: ./auth-service
+    container_name: inkluai_auth
+    restart: always
+    expose:
+      - "5001"
+    environment:
+      - MONGO_URI=mongodb://admin:${MONGODB_PASSWORD}@mongodb:27017/
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+    networks:
+      - inkluai_network
+
+  # Servicio de frontend
+  frontend:
+    build: ./frontend
+    container_name: inkluai_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    networks:
+      - inkluai_network
+
+networks:
+  inkluai_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
